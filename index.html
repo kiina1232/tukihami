@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>月喰み v0.2</title>
+<title>月喰み v0.3</title>
 <style>
   :root {
     --bg: #111318;
@@ -421,7 +421,7 @@
 <header>
   <div class="brand">
     <h1>月喰み</h1>
-    <span>v0.2</span>
+    <span>v0.3</span>
   </div>
   <div class="status" id="statusPill">未開始</div>
   <div class="header-actions">
@@ -478,15 +478,15 @@
     <div class="section">
       <h2>ルール</h2>
       <details open>
-        <summary>調整済みv0.2</summary>
+        <summary>調整済みv0.3</summary>
         <ol class="rules">
-          <li>月と同じ行または列の空きマスに置く。</li>
-          <li>直線手がない時だけ、任意の空きマスに置ける。</li>
-          <li>月は置いた石へ移動する。</li>
-          <li>直線移動では出発地点を除き、途中と到着の石を反転する。</li>
+          <li>月と同じ印刷レーン上の空き点に置く。</li>
+          <li>レーン上に置ける場所がない時だけ、任意の空き点に置ける。</li>
+          <li>月は置いた石へレーン移動する。</li>
+          <li>レーン移動では出発地点を除き、途中と到着の石を反転する。</li>
           <li>到着石は最後に必ず影石になる。</li>
           <li>月が乗る石は勝利判定では常に影石。</li>
-          <li>明石4連続で勝ち。手番側、相手側の順で判定する。</li>
+          <li>同じレーン上の明石3連続で勝ち。手番側、相手側の順で判定する。</li>
         </ol>
       </details>
     </div>
@@ -496,7 +496,7 @@
     <div class="message">
       <div>
         <div class="message-main" id="messageMain">ゲームを開始してください</div>
-        <div class="message-sub" id="messageSub">月は中央から始まります。合法手は光るマスです。</div>
+        <div class="message-sub" id="messageSub">月は中央から始まります。合法手は光る点です。</div>
       </div>
       <div class="legend">
         <span class="legend-item"><span class="legend-swatch" style="background:#05060a"></span>黒</span>
@@ -522,11 +522,14 @@
 <script>
 const SIZE = 5;
 const MAX_STONES = 12;
+const WIN_LENGTH = 3;
 const EMPTY_MOON = { r: 2, c: 2 };
 const COLORS = {
   black: { label: '黒', stone: '#06070b', rim: '#60697a', text: '#eef2f7' },
   white: { label: '白', stone: '#f4f0e8', rim: '#b8b4ac', text: '#16171d' }
 };
+
+const LANES = buildLanes();
 
 let board = [];
 let moon = { ...EMPTY_MOON };
@@ -611,23 +614,77 @@ function countStones(color, litOnly = false, centerOnly = false) {
   return count;
 }
 
-function computeLegalMoves() {
-  const straight = [];
-  for (let c = 0; c < SIZE; c++) {
-    if (isEmpty(moon.r, c)) straight.push({ r: moon.r, c, straight: true });
-  }
+function buildLanes() {
+  const lanes = [];
   for (let r = 0; r < SIZE; r++) {
-    if (isEmpty(r, moon.c)) straight.push({ r, c: moon.c, straight: true });
+    lanes.push(Array.from({ length: SIZE }, (_, c) => ({ r, c })));
   }
-  if (straight.length) {
-    legalMoves = straight;
+  for (let c = 0; c < SIZE; c++) {
+    lanes.push(Array.from({ length: SIZE }, (_, r) => ({ r, c })));
+  }
+
+  for (let startC = 0; startC < SIZE; startC++) addDiagonal(lanes, 0, startC, 1, 1);
+  for (let startR = 1; startR < SIZE; startR++) addDiagonal(lanes, startR, 0, 1, 1);
+  for (let startC = 0; startC < SIZE; startC++) addDiagonal(lanes, 0, startC, 1, -1);
+  for (let startR = 1; startR < SIZE; startR++) addDiagonal(lanes, startR, SIZE - 1, 1, -1);
+  return lanes.filter(lane => lane.length >= WIN_LENGTH);
+}
+
+function addDiagonal(lanes, r, c, dr, dc) {
+  const lane = [];
+  while (inBounds(r, c)) {
+    lane.push({ r, c });
+    r += dr;
+    c += dc;
+  }
+  if (lane.length >= WIN_LENGTH) lanes.push(lane);
+}
+
+function laneIndexOf(lane, r, c) {
+  return lane.findIndex(pos => pos.r === r && pos.c === c);
+}
+
+function lanePathsBetween(from, to) {
+  const paths = [];
+  for (let i = 0; i < LANES.length; i++) {
+    const lane = LANES[i];
+    const a = laneIndexOf(lane, from.r, from.c);
+    const b = laneIndexOf(lane, to.r, to.c);
+    if (a === -1 || b === -1 || a === b) continue;
+    const step = b > a ? 1 : -1;
+    const path = [];
+    for (let p = a + step; p !== b + step; p += step) path.push(lane[p]);
+    paths.push({ lane: i, path });
+  }
+  return paths.sort((a, b) => a.path.length - b.path.length);
+}
+
+function computeLegalMoves() {
+  const laneMoves = new Map();
+  for (let i = 0; i < LANES.length; i++) {
+    const lane = LANES[i];
+    if (laneIndexOf(lane, moon.r, moon.c) === -1) continue;
+    for (const pos of lane) {
+      if (!isEmpty(pos.r, pos.c)) continue;
+      const key = `${pos.r},${pos.c}`;
+      const paths = lanePathsBetween(moon, pos);
+      if (!paths.length) continue;
+      const current = laneMoves.get(key);
+      if (!current || paths[0].path.length < current.path.length) {
+        laneMoves.set(key, { r: pos.r, c: pos.c, rail: true, path: paths[0].path, lane: paths[0].lane });
+      }
+    }
+  }
+
+  if (laneMoves.size) {
+    legalMoves = [...laneMoves.values()];
     return legalMoves;
   }
 
   legalMoves = [];
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
-      if (isEmpty(r, c)) legalMoves.push({ r, c, straight: false });
+      if (isEmpty(r, c)) legalMoves.push({ r, c, rail: false, path: [{ r, c }] });
     }
   }
   return legalMoves;
@@ -637,34 +694,17 @@ function isLegalMove(r, c) {
   return legalMoves.some(move => move.r === r && move.c === c);
 }
 
-function pathBetween(from, to) {
-  if (from.r === to.r) {
-    const step = to.c > from.c ? 1 : -1;
-    const path = [];
-    for (let c = from.c + step; c !== to.c + step; c += step) path.push({ r: from.r, c });
-    return path;
-  }
-  if (from.c === to.c) {
-    const step = to.r > from.r ? 1 : -1;
-    const path = [];
-    for (let r = from.r + step; r !== to.r + step; r += step) path.push({ r, c: from.c });
-    return path;
-  }
-  return [];
-}
-
 function applyMove(r, c, color, broadcast) {
   if (gameOver || color !== turn || placed[color] >= MAX_STONES) return false;
   computeLegalMoves();
-  if (!isLegalMove(r, c)) return false;
+  const move = legalMoves.find(candidate => candidate.r === r && candidate.c === c);
+  if (!move) return false;
 
-  const wasStraight = moon.r === r || moon.c === c;
-  const from = { ...moon };
   board[idx(r, c)] = { color, lit: true };
   placed[color]++;
 
-  const path = wasStraight ? pathBetween(from, { r, c }) : [{ r, c }];
-  if (wasStraight) {
+  const path = move.path || [{ r, c }];
+  if (move.rail) {
     for (const pos of path) {
       const stone = stoneAt(pos.r, pos.c);
       if (stone) stone.lit = !stone.lit;
@@ -676,7 +716,7 @@ function applyMove(r, c, color, broadcast) {
   moon = { r, c };
   lastPath = path;
 
-  addLog(color, `${COLORS[color].label} ${coordLabel(r, c)}${wasStraight ? '' : ' 跳'}`);
+  addLog(color, `${COLORS[color].label} ${coordLabel(r, c)}${move.rail ? '' : ' 跳'}`);
 
   const result = evaluateAfterMove(color);
   if (result) {
@@ -699,24 +739,16 @@ function coordLabel(r, c) {
   return `${String.fromCharCode(65 + c)}${r + 1}`;
 }
 
-function hasFour(color) {
-  const dirs = [
-    [1, 0], [0, 1], [1, 1], [1, -1]
-  ];
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      if (!effectiveLit(r, c) || stoneAt(r, c).color !== color) continue;
-      for (const [dr, dc] of dirs) {
-        let count = 1;
-        for (let n = 1; n < 4; n++) {
-          const nr = r + dr * n;
-          const nc = c + dc * n;
-          if (!inBounds(nr, nc)) break;
-          const stone = stoneAt(nr, nc);
-          if (!stone || stone.color !== color || !effectiveLit(nr, nc)) break;
-          count++;
-        }
-        if (count >= 4) return true;
+function hasLineWin(color) {
+  for (const lane of LANES) {
+    let count = 0;
+    for (const pos of lane) {
+      const stone = stoneAt(pos.r, pos.c);
+      if (stone && stone.color === color && effectiveLit(pos.r, pos.c)) {
+        count++;
+        if (count >= WIN_LENGTH) return true;
+      } else {
+        count = 0;
       }
     }
   }
@@ -725,11 +757,11 @@ function hasFour(color) {
 
 function evaluateAfterMove(activeColor) {
   const opponent = activeColor === 'black' ? 'white' : 'black';
-  if (hasFour(activeColor)) {
-    return { type: 'line', winner: activeColor, reason: `${COLORS[activeColor].label}の明石4連続` };
+  if (hasLineWin(activeColor)) {
+    return { type: 'line', winner: activeColor, reason: `${COLORS[activeColor].label}の明石${WIN_LENGTH}連続` };
   }
-  if (hasFour(opponent)) {
-    return { type: 'line', winner: opponent, reason: `${COLORS[opponent].label}の明石4連続を照らしました` };
+  if (hasLineWin(opponent)) {
+    return { type: 'line', winner: opponent, reason: `${COLORS[opponent].label}の明石${WIN_LENGTH}連続を照らしました` };
   }
   if (placed.black >= MAX_STONES && placed.white >= MAX_STONES) {
     return scoreGame();
@@ -1073,13 +1105,13 @@ function updateUI() {
   const legalText = legalMoves.length ? `${legalMoves.length}手` : 'なし';
   if (mode === 'idle') {
     document.getElementById('messageMain').textContent = 'ゲームを開始してください';
-    document.getElementById('messageSub').textContent = '月は中央から始まります。合法手は光るマスです。';
+    document.getElementById('messageSub').textContent = '月は中央から始まります。合法手は光る点です。';
   } else if (mode === 'online' && myColor !== turn) {
     document.getElementById('messageMain').textContent = `${COLORS[turn].label}の手番`;
     document.getElementById('messageSub').textContent = `相手の着手を待っています。合法手は${legalText}。`;
   } else {
     document.getElementById('messageMain').textContent = `${COLORS[turn].label}の手番`;
-    document.getElementById('messageSub').textContent = `月と同じ行・列へ置きます。合法手は${legalText}。`;
+    document.getElementById('messageSub').textContent = `月と同じ印刷レーンへ置きます。合法手は${legalText}。`;
   }
 }
 
@@ -1089,9 +1121,15 @@ function cellRect(r, c) {
   return { x, y, w: cell, h: cell };
 }
 
+function cellCenter(r, c) {
+  const { x, y, w, h } = cellRect(r, c);
+  return { x: x + w / 2, y: y + h / 2 };
+}
+
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBackground();
+  drawTracks();
   drawCells();
   drawLastPath();
   drawStones();
@@ -1112,18 +1150,53 @@ function drawBackground() {
   ctx.fill();
 }
 
+function drawTracks() {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const lane of LANES) {
+    ctx.beginPath();
+    lane.forEach((pos, index) => {
+      const center = cellCenter(pos.r, pos.c);
+      if (index === 0) ctx.moveTo(center.x, center.y);
+      else ctx.lineTo(center.x, center.y);
+    });
+    ctx.strokeStyle = 'rgba(0,0,0,0.38)';
+    ctx.lineWidth = 18;
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(238,242,247,0.16)';
+    ctx.lineWidth = 7;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawCells() {
   const legalSet = new Set(legalMoves.map(move => `${move.r},${move.c}`));
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       const { x, y, w, h } = cellRect(r, c);
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const radius = w * 0.26;
       const legal = canInteract() && legalSet.has(`${r},${c}`);
-      ctx.fillStyle = legal ? 'rgba(244,196,106,0.22)' : 'rgba(255,255,255,0.055)';
-      ctx.strokeStyle = legal ? 'rgba(244,196,106,0.72)' : 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = legal ? 2 : 1;
-      roundRect(x, y, w, h, 12);
+      ctx.fillStyle = legal ? 'rgba(244,196,106,0.30)' : 'rgba(20,24,33,0.92)';
+      ctx.strokeStyle = legal ? 'rgba(244,196,106,0.86)' : 'rgba(238,242,247,0.22)';
+      ctx.lineWidth = legal ? 4 : 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+      if (legal) {
+        ctx.save();
+        ctx.globalAlpha = 0.24;
+        ctx.fillStyle = '#f4c46a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
   }
 }
@@ -1134,7 +1207,8 @@ function drawLastPath() {
   for (const pos of lastPath) {
     const { x, y, w, h } = cellRect(pos.r, pos.c);
     ctx.fillStyle = 'rgba(112,183,255,0.18)';
-    roundRect(x + 6, y + 6, w - 12, h - 12, 10);
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, w * 0.40, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
