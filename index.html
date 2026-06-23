@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月喰み v0.2</title>
+<style>
+  :root {
+    --bg: #111318;
+    --surface: #1a1e27;
+    --panel: #222938;
+    --panel-2: #2b3344;
+    --line: rgba(255,255,255,0.11);
+    --text: #eef2f7;
+    --muted: #98a2b3;
+    --gold: #f4c46a;
+    --moon: #f7df9d;
+    --black: #16171d;
+    --white: #f4f0e8;
+    --blue: #70b7ff;
+    --red: #f06d7a;
+    --green: #63d197;
+    --shadow: rgba(8,10,16,0.54);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    height: 58px;
+    padding: 0 22px;
+    background: #171b23;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 21px;
+    letter-spacing: 0;
+    font-weight: 750;
+  }
+
+  .brand span {
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .status {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(244,196,106,0.35);
+    color: var(--gold);
+    background: rgba(244,196,106,0.11);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .status.connected {
+    border-color: rgba(99,209,151,0.35);
+    color: var(--green);
+    background: rgba(99,209,151,0.11);
+  }
+
+  .status.danger {
+    border-color: rgba(240,109,122,0.35);
+    color: var(--red);
+    background: rgba(240,109,122,0.11);
+  }
+
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+
+  .app {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+
+  aside {
+    min-height: 0;
+    overflow: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+  }
+
+  .section {
+    padding: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .section h2 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .turn-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .player {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .player.active {
+    border-color: rgba(244,196,106,0.65);
+    background: rgba(244,196,106,0.08);
+  }
+
+  .player-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .stone-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.22);
+    flex: 0 0 auto;
+  }
+
+  .stone-dot.black { background: #05060a; }
+  .stone-dot.white { background: var(--white); }
+
+  .player-name {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+
+  .stat {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .stat strong {
+    display: block;
+    color: var(--text);
+    font-size: 15px;
+    margin-top: 2px;
+  }
+
+  .btn, .copy-btn, .select {
+    font: inherit;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text);
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.08s;
+  }
+
+  .btn:hover { background: var(--panel-2); border-color: rgba(255,255,255,0.2); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--gold); border-color: transparent; color: #15171c; }
+  .btn.primary:hover { background: #ffd27a; }
+  .btn.blue { background: rgba(112,183,255,0.18); border-color: rgba(112,183,255,0.35); }
+  .btn.full { width: 100%; }
+
+  .button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .button-grid .wide { grid-column: 1 / -1; }
+
+  .select {
+    width: 100%;
+    padding: 8px 10px;
+    margin-top: 8px;
+    font-size: 13px;
+    background: #151922;
+  }
+
+  .field {
+    margin-top: 10px;
+  }
+
+  .field label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 86px;
+    resize: vertical;
+    padding: 8px;
+    color: var(--text);
+    background: #11151e;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  textarea:focus, .select:focus {
+    outline: none;
+    border-color: rgba(244,196,106,0.7);
+  }
+
+  .copy-btn {
+    margin-top: 6px;
+    padding: 5px 9px;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .copy-btn:hover { color: var(--text); }
+
+  .hint {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.65;
+    margin: 8px 0 0;
+  }
+
+  .log {
+    max-height: 210px;
+    overflow: auto;
+    color: var(--muted);
+    font: 12px/1.75 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .log-entry {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 2px 0;
+  }
+
+  .log-time {
+    color: #5f6b7b;
+    flex: 0 0 auto;
+  }
+
+  details summary {
+    cursor: pointer;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .rules {
+    margin-top: 10px;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .board-area {
+    min-width: 0;
+    min-height: 0;
+    padding: 22px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .message {
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.035);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .message-main {
+    font-size: 15px;
+    font-weight: 750;
+  }
+
+  .message-sub {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .legend-swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+
+  .board-shell {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    overflow: auto;
+  }
+
+  canvas {
+    width: min(76vh, calc(100vw - 390px), 680px);
+    max-width: 100%;
+    height: auto;
+    display: block;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8,10,15,0.74);
+    z-index: 20;
+    padding: 18px;
+  }
+
+  .modal.show { display: flex; }
+
+  .modal-card {
+    width: min(460px, 100%);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+    background: #1a1f2a;
+    text-align: center;
+  }
+
+  .modal-card h2 {
+    margin: 0 0 8px;
+    font-size: 28px;
+  }
+
+  .modal-card p {
+    margin: 0 0 18px;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  @media (max-width: 980px) {
+    header { height: auto; min-height: 56px; flex-wrap: wrap; padding: 10px 14px; }
+    .header-actions { margin-left: 0; }
+    .app { grid-template-columns: 1fr; }
+    aside { max-height: 46vh; border-right: 0; border-bottom: 1px solid var(--line); }
+    .board-area { padding: 14px; }
+    canvas { width: min(92vw, 620px); }
+  }
+
+  @media (max-width: 540px) {
+    .button-grid, .turn-panel { grid-template-columns: 1fr; }
+    .message { align-items: flex-start; flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>月喰み</h1>
+    <span>v0.2</span>
+  </div>
+  <div class="status" id="statusPill">未開始</div>
+  <div class="header-actions">
+    <button class="btn" onclick="resetGame(true)">新局</button>
+  </div>
+</header>
+
+<div class="app">
+  <aside>
+    <div class="section">
+      <h2>ゲーム</h2>
+      <div class="button-grid">
+        <button class="btn primary wide" onclick="startLocalGame()">同じ画面で2人対戦</button>
+        <button class="btn blue" onclick="startHost()">オンライン作成</button>
+        <button class="btn" onclick="startGuest()">オンライン参加</button>
+      </div>
+      <p class="hint">オンラインはサーバー不要のP2Pです。作成側は黒、参加側は白になります。</p>
+    </div>
+
+    <div class="section">
+      <h2>プレイヤー</h2>
+      <div class="turn-panel">
+        <div class="player" id="playerBlack">
+          <div class="player-top"><span class="stone-dot black"></span><span class="player-name" id="nameBlack">黒</span></div>
+          <div class="stats">
+            <div class="stat">明石<strong id="blackLit">0</strong></div>
+            <div class="stat">影石<strong id="blackShadow">0</strong></div>
+            <div class="stat">残り<strong id="blackReserve">12</strong></div>
+          </div>
+        </div>
+        <div class="player" id="playerWhite">
+          <div class="player-top"><span class="stone-dot white"></span><span class="player-name" id="nameWhite">白</span></div>
+          <div class="stats">
+            <div class="stat">明石<strong id="whiteLit">0</strong></div>
+            <div class="stat">影石<strong id="whiteShadow">0</strong></div>
+            <div class="stat">残り<strong id="whiteReserve">12</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="onlinePanel">
+      <h2>接続</h2>
+      <div id="connectionBox">
+        <p class="hint">オンライン作成または参加を選ぶと、コード交換欄が表示されます。</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>着手履歴</h2>
+      <div class="log" id="moveLog"></div>
+    </div>
+
+    <div class="section">
+      <h2>ルール</h2>
+      <details open>
+        <summary>調整済みv0.2</summary>
+        <ol class="rules">
+          <li>月と同じ行または列の空きマスに置く。</li>
+          <li>直線手がない時だけ、任意の空きマスに置ける。</li>
+          <li>月は置いた石へ移動する。</li>
+          <li>直線移動では出発地点を除き、途中と到着の石を反転する。</li>
+          <li>到着石は最後に必ず影石になる。</li>
+          <li>月が乗る石は勝利判定では常に影石。</li>
+          <li>明石4連続で勝ち。手番側、相手側の順で判定する。</li>
+        </ol>
+      </details>
+    </div>
+  </aside>
+
+  <main class="board-area">
+    <div class="message">
+      <div>
+        <div class="message-main" id="messageMain">ゲームを開始してください</div>
+        <div class="message-sub" id="messageSub">月は中央から始まります。合法手は光るマスです。</div>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-swatch" style="background:#05060a"></span>黒</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#f4f0e8"></span>白</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:rgba(255,255,255,0.18)"></span>影</span>
+        <span class="legend-item">☾ 月</span>
+      </div>
+    </div>
+    <div class="board-shell">
+      <canvas id="board" width="720" height="720" aria-label="月喰みの盤面"></canvas>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="resultModal">
+  <div class="modal-card">
+    <h2 id="resultTitle">勝利</h2>
+    <p id="resultText"></p>
+    <button class="btn primary" onclick="hideResult(); resetGame(true);">もう一度</button>
+  </div>
+</div>
+
+<script>
+const SIZE = 5;
+const MAX_STONES = 12;
+const EMPTY_MOON = { r: 2, c: 2 };
+const COLORS = {
+  black: { label: '黒', stone: '#06070b', rim: '#60697a', text: '#eef2f7' },
+  white: { label: '白', stone: '#f4f0e8', rim: '#b8b4ac', text: '#16171d' }
+};
+
+let board = [];
+let moon = { ...EMPTY_MOON };
+let turn = 'black';
+let mode = 'idle';
+let myColor = null;
+let isHost = false;
+let gameOver = false;
+let lastPath = [];
+let legalMoves = [];
+let placed = { black: 0, white: 0 };
+let pc = null;
+let dc = null;
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const boardSize = canvas.width;
+const margin = 58;
+const gap = 10;
+const cell = (boardSize - margin * 2 - gap * (SIZE - 1)) / SIZE;
+
+function resetState() {
+  board = Array.from({ length: SIZE * SIZE }, () => null);
+  moon = { ...EMPTY_MOON };
+  turn = 'black';
+  gameOver = false;
+  lastPath = [];
+  placed = { black: 0, white: 0 };
+  computeLegalMoves();
+}
+
+function idx(r, c) {
+  return r * SIZE + c;
+}
+
+function inBounds(r, c) {
+  return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+}
+
+function isMoon(r, c) {
+  return moon.r === r && moon.c === c;
+}
+
+function stoneAt(r, c) {
+  return inBounds(r, c) ? board[idx(r, c)] : null;
+}
+
+function isEmpty(r, c) {
+  return inBounds(r, c) && !isMoon(r, c) && !stoneAt(r, c);
+}
+
+function effectiveLit(r, c) {
+  const stone = stoneAt(r, c);
+  return !!stone && stone.lit && !isMoon(r, c);
+}
+
+function playerName(color) {
+  if (mode === 'online') {
+    if (color === myColor) return `${COLORS[color].label}（あなた）`;
+    return `${COLORS[color].label}（相手）`;
+  }
+  return COLORS[color].label;
+}
+
+function canInteract() {
+  if (gameOver || mode === 'idle') return false;
+  if (mode === 'online') return dc && dc.readyState === 'open' && turn === myColor;
+  return mode === 'local';
+}
+
+function countStones(color, litOnly = false, centerOnly = false) {
+  let count = 0;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const stone = stoneAt(r, c);
+      if (!stone || stone.color !== color) continue;
+      if (centerOnly && (r < 1 || r > 3 || c < 1 || c > 3)) continue;
+      if (litOnly && !effectiveLit(r, c)) continue;
+      count++;
+    }
+  }
+  return count;
+}
+
+function computeLegalMoves() {
+  const straight = [];
+  for (let c = 0; c < SIZE; c++) {
+    if (isEmpty(moon.r, c)) straight.push({ r: moon.r, c, straight: true });
+  }
+  for (let r = 0; r < SIZE; r++) {
+    if (isEmpty(r, moon.c)) straight.push({ r, c: moon.c, straight: true });
+  }
+  if (straight.length) {
+    legalMoves = straight;
+    return legalMoves;
+  }
+
+  legalMoves = [];
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (isEmpty(r, c)) legalMoves.push({ r, c, straight: false });
+    }
+  }
+  return legalMoves;
+}
+
+function isLegalMove(r, c) {
+  return legalMoves.some(move => move.r === r && move.c === c);
+}
+
+function pathBetween(from, to) {
+  if (from.r === to.r) {
+    const step = to.c > from.c ? 1 : -1;
+    const path = [];
+    for (let c = from.c + step; c !== to.c + step; c += step) path.push({ r: from.r, c });
+    return path;
+  }
+  if (from.c === to.c) {
+    const step = to.r > from.r ? 1 : -1;
+    const path = [];
+    for (let r = from.r + step; r !== to.r + step; r += step) path.push({ r, c: from.c });
+    return path;
+  }
+  return [];
+}
+
+function applyMove(r, c, color, broadcast) {
+  if (gameOver || color !== turn || placed[color] >= MAX_STONES) return false;
+  computeLegalMoves();
+  if (!isLegalMove(r, c)) return false;
+
+  const wasStraight = moon.r === r || moon.c === c;
+  const from = { ...moon };
+  board[idx(r, c)] = { color, lit: true };
+  placed[color]++;
+
+  const path = wasStraight ? pathBetween(from, { r, c }) : [{ r, c }];
+  if (wasStraight) {
+    for (const pos of path) {
+      const stone = stoneAt(pos.r, pos.c);
+      if (stone) stone.lit = !stone.lit;
+    }
+  }
+
+  const dest = stoneAt(r, c);
+  if (dest) dest.lit = false;
+  moon = { r, c };
+  lastPath = path;
+
+  addLog(color, `${COLORS[color].label} ${coordLabel(r, c)}${wasStraight ? '' : ' 跳'}`);
+
+  const result = evaluateAfterMove(color);
+  if (result) {
+    finishGame(result);
+  } else {
+    turn = color === 'black' ? 'white' : 'black';
+    computeLegalMoves();
+    if (placed[turn] >= MAX_STONES) {
+      finishGame(scoreGame());
+    }
+  }
+
+  updateUI();
+  drawBoard();
+  if (broadcast && mode === 'online') send({ type: 'move', r, c, color });
+  return true;
+}
+
+function coordLabel(r, c) {
+  return `${String.fromCharCode(65 + c)}${r + 1}`;
+}
+
+function hasFour(color) {
+  const dirs = [
+    [1, 0], [0, 1], [1, 1], [1, -1]
+  ];
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (!effectiveLit(r, c) || stoneAt(r, c).color !== color) continue;
+      for (const [dr, dc] of dirs) {
+        let count = 1;
+        for (let n = 1; n < 4; n++) {
+          const nr = r + dr * n;
+          const nc = c + dc * n;
+          if (!inBounds(nr, nc)) break;
+          const stone = stoneAt(nr, nc);
+          if (!stone || stone.color !== color || !effectiveLit(nr, nc)) break;
+          count++;
+        }
+        if (count >= 4) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function evaluateAfterMove(activeColor) {
+  const opponent = activeColor === 'black' ? 'white' : 'black';
+  if (hasFour(activeColor)) {
+    return { type: 'line', winner: activeColor, reason: `${COLORS[activeColor].label}の明石4連続` };
+  }
+  if (hasFour(opponent)) {
+    return { type: 'line', winner: opponent, reason: `${COLORS[opponent].label}の明石4連続を照らしました` };
+  }
+  if (placed.black >= MAX_STONES && placed.white >= MAX_STONES) {
+    return scoreGame();
+  }
+  return null;
+}
+
+function scoreGame() {
+  const blackLit = countStones('black', true);
+  const whiteLit = countStones('white', true);
+  if (blackLit !== whiteLit) {
+    return {
+      type: 'score',
+      winner: blackLit > whiteLit ? 'black' : 'white',
+      reason: `明石数 ${blackLit}-${whiteLit}`
+    };
+  }
+
+  const blackCenter = countStones('black', true, true);
+  const whiteCenter = countStones('white', true, true);
+  if (blackCenter !== whiteCenter) {
+    return {
+      type: 'score',
+      winner: blackCenter > whiteCenter ? 'black' : 'white',
+      reason: `中央3×3の明石数 ${blackCenter}-${whiteCenter}`
+    };
+  }
+
+  return {
+    type: 'draw',
+    winner: null,
+    reason: `明石数 ${blackLit}-${whiteLit}、中央 ${blackCenter}-${whiteCenter}`
+  };
+}
+
+function finishGame(result) {
+  gameOver = true;
+  setStatus('danger', result.winner ? '決着' : '引き分け');
+  const title = result.winner ? `${COLORS[result.winner].label}の勝ち` : '引き分け';
+  const text = result.winner
+    ? `${result.reason}。月の移動後に判定しました。`
+    : `${result.reason}。勝者なしです。`;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultText').textContent = text;
+  document.getElementById('resultModal').classList.add('show');
+  addLog('sys', title);
+}
+
+function hideResult() {
+  document.getElementById('resultModal').classList.remove('show');
+}
+
+function startLocalGame() {
+  closeConnection();
+  resetState();
+  mode = 'local';
+  myColor = null;
+  isHost = false;
+  setNames('黒', '白');
+  setStatus('', 'ローカル対戦');
+  addLog('sys', 'ローカル2人対戦を開始');
+  updateUI();
+  drawBoard();
+}
+
+function resetGame(broadcast) {
+  hideResult();
+  resetState();
+  if (mode === 'idle') {
+    setNames('黒', '白');
+    setStatus('', '未開始');
+    updateUI();
+    drawBoard();
+    return;
+  }
+  addLog('sys', '新局');
+  if (mode === 'online') {
+    setNames(isHost ? '黒（あなた）' : '黒（相手）', isHost ? '白（相手）' : '白（あなた）');
+    setStatus(dc && dc.readyState === 'open' ? 'connected' : '', dc && dc.readyState === 'open' ? '接続済み' : '接続待ち');
+    if (broadcast) send({ type: 'reset' });
+  } else {
+    setStatus('', 'ローカル対戦');
+  }
+  updateUI();
+  drawBoard();
+}
+
+function closeConnection() {
+  if (dc) dc.close();
+  if (pc) pc.close();
+  dc = null;
+  pc = null;
+  document.getElementById('connectionBox').innerHTML = '<p class="hint">オンライン作成または参加を選ぶと、コード交換欄が表示されます。</p>';
+}
+
+function createPC() {
+  pc = new RTCPeerConnection({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  });
+
+  pc.onicecandidate = () => {
+    if (pc.iceGatheringState === 'complete') updateLocalCode();
+  };
+  pc.onicegatheringstatechange = () => {
+    if (pc.iceGatheringState === 'complete') updateLocalCode();
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') onConnected();
+    if (['closed', 'failed', 'disconnected'].includes(pc.connectionState)) onDisconnected();
+  };
+  pc.ondatachannel = event => {
+    dc = event.channel;
+    setupDataChannel();
+  };
+}
+
+function setupDataChannel() {
+  dc.onopen = onConnected;
+  dc.onclose = onDisconnected;
+  dc.onmessage = event => handleMessage(JSON.parse(event.data));
+}
+
+function send(message) {
+  if (dc && dc.readyState === 'open') dc.send(JSON.stringify(message));
+}
+
+async function startHost() {
+  closeConnection();
+  resetState();
+  mode = 'online';
+  myColor = 'black';
+  isHost = true;
+  setNames('黒（あなた）', '白（相手）');
+  setStatus('', '接続準備中');
+  createPC();
+  dc = pc.createDataChannel('tsukihami');
+  setupDataChannel();
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await waitGather();
+  showHostPanel();
+  updateUI();
+  drawBoard();
+}
+
+function showHostPanel() {
+  setStatus('', '相手待ち');
+  document.getElementById('connectionBox').innerHTML = `
+    <div class="field">
+      <label>1. このオファーコードを相手に送る</label>
+      <textarea id="offerOut" readonly></textarea>
+      <button class="copy-btn" onclick="copyField('offerOut', this)">コピー</button>
+    </div>
+    <div class="field">
+      <label>2. 相手のアンサーコードを貼る</label>
+      <textarea id="answerIn" placeholder="アンサーコード"></textarea>
+      <button class="btn primary full" onclick="submitAnswer()">接続する</button>
+    </div>
+  `;
+  updateLocalCode();
+}
+
+async function submitAnswer() {
+  const raw = document.getElementById('answerIn').value.trim();
+  try {
+    await pc.setRemoteDescription(JSON.parse(atob(raw)));
+    setStatus('', '接続中');
+  } catch (error) {
+    alert(`コードを読めません: ${error.message}`);
+  }
+}
+
+async function startGuest() {
+  closeConnection();
+  resetState();
+  mode = 'online';
+  myColor = 'white';
+  isHost = false;
+  setNames('黒（相手）', '白（あなた）');
+  setStatus('', 'オファー待ち');
+  createPC();
+  document.getElementById('connectionBox').innerHTML = `
+    <div class="field">
+      <label>1. 相手のオファーコードを貼る</label>
+      <textarea id="offerIn" placeholder="オファーコード"></textarea>
+      <button class="btn primary full" onclick="submitOffer()">アンサーを作る</button>
+    </div>
+    <div class="field" id="answerOutWrap" style="display:none">
+      <label>2. このアンサーコードを相手に送る</label>
+      <textarea id="answerOut" readonly></textarea>
+      <button class="copy-btn" onclick="copyField('answerOut', this)">コピー</button>
+    </div>
+  `;
+  updateUI();
+  drawBoard();
+}
+
+async function submitOffer() {
+  const raw = document.getElementById('offerIn').value.trim();
+  try {
+    await pc.setRemoteDescription(JSON.parse(atob(raw)));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await waitGather();
+    document.getElementById('answerOutWrap').style.display = '';
+    document.getElementById('answerOut').value = btoa(JSON.stringify(pc.localDescription));
+    setStatus('', '接続待ち');
+  } catch (error) {
+    alert(`コードを読めません: ${error.message}`);
+  }
+}
+
+async function waitGather() {
+  if (pc.iceGatheringState === 'complete') return;
+  await new Promise(resolve => {
+    const done = () => {
+      if (pc.iceGatheringState === 'complete') {
+        pc.removeEventListener('icegatheringstatechange', done);
+        resolve();
+      }
+    };
+    pc.addEventListener('icegatheringstatechange', done);
+    setTimeout(resolve, 4200);
+  });
+}
+
+function updateLocalCode() {
+  const out = document.getElementById('offerOut');
+  if (out && pc && pc.localDescription) out.value = btoa(JSON.stringify(pc.localDescription));
+}
+
+function onConnected() {
+  setStatus('connected', '接続済み');
+  addLog('sys', 'オンライン接続が確立');
+  if (isHost) send({ type: 'sync', state: exportState() });
+  updateUI();
+  drawBoard();
+}
+
+function onDisconnected() {
+  if (mode !== 'online') return;
+  setStatus('danger', '切断');
+  addLog('sys', '接続が切れました');
+}
+
+function handleMessage(message) {
+  if (message.type === 'sync') {
+    importState(message.state);
+    updateUI();
+    drawBoard();
+  }
+  if (message.type === 'move') {
+    applyMove(message.r, message.c, message.color, false);
+  }
+  if (message.type === 'reset') {
+    resetGame(false);
+  }
+}
+
+function exportState() {
+  return {
+    board,
+    moon,
+    turn,
+    gameOver,
+    lastPath,
+    placed
+  };
+}
+
+function importState(state) {
+  board = state.board;
+  moon = state.moon;
+  turn = state.turn;
+  gameOver = state.gameOver;
+  lastPath = state.lastPath || [];
+  placed = state.placed;
+  computeLegalMoves();
+}
+
+function copyField(id, btn) {
+  const field = document.getElementById(id);
+  const text = field.value;
+  const done = () => {
+    const original = btn.textContent;
+    btn.textContent = 'コピー済み';
+    setTimeout(() => { btn.textContent = original; }, 1400);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(done);
+  } else {
+    field.select();
+    document.execCommand('copy');
+    done();
+  }
+}
+
+function addLog(type, text) {
+  const log = document.getElementById('moveLog');
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">${hh}:${mm}</span><span>${text}</span>`;
+  if (type === 'black') div.style.color = '#d7dde8';
+  if (type === 'white') div.style.color = '#fff4d8';
+  if (type === 'sys') div.style.color = '#f4c46a';
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setStatus(kind, text) {
+  const pill = document.getElementById('statusPill');
+  pill.className = `status ${kind || ''}`.trim();
+  pill.textContent = text;
+}
+
+function setNames(black, white) {
+  document.getElementById('nameBlack').textContent = black;
+  document.getElementById('nameWhite').textContent = white;
+}
+
+function updateUI() {
+  document.getElementById('playerBlack').classList.toggle('active', turn === 'black' && !gameOver);
+  document.getElementById('playerWhite').classList.toggle('active', turn === 'white' && !gameOver);
+
+  for (const color of ['black', 'white']) {
+    const lit = countStones(color, true);
+    const total = placed[color];
+    document.getElementById(`${color}Lit`).textContent = lit;
+    document.getElementById(`${color}Shadow`).textContent = total - lit;
+    document.getElementById(`${color}Reserve`).textContent = Math.max(0, MAX_STONES - placed[color]);
+  }
+
+  if (gameOver) return;
+  computeLegalMoves();
+  const legalText = legalMoves.length ? `${legalMoves.length}手` : 'なし';
+  if (mode === 'idle') {
+    document.getElementById('messageMain').textContent = 'ゲームを開始してください';
+    document.getElementById('messageSub').textContent = '月は中央から始まります。合法手は光るマスです。';
+  } else if (mode === 'online' && myColor !== turn) {
+    document.getElementById('messageMain').textContent = `${COLORS[turn].label}の手番`;
+    document.getElementById('messageSub').textContent = `相手の着手を待っています。合法手は${legalText}。`;
+  } else {
+    document.getElementById('messageMain').textContent = `${COLORS[turn].label}の手番`;
+    document.getElementById('messageSub').textContent = `月と同じ行・列へ置きます。合法手は${legalText}。`;
+  }
+}
+
+function cellRect(r, c) {
+  const x = margin + c * (cell + gap);
+  const y = margin + r * (cell + gap);
+  return { x, y, w: cell, h: cell };
+}
+
+function drawBoard() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBackground();
+  drawCells();
+  drawLastPath();
+  drawStones();
+  drawMoon();
+  drawCoordinates();
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#12161f';
+  roundRect(28, 28, boardSize - 56, boardSize - 56, 22);
+  ctx.fill();
+
+  const grad = ctx.createLinearGradient(0, 0, boardSize, boardSize);
+  grad.addColorStop(0, 'rgba(244,196,106,0.10)');
+  grad.addColorStop(1, 'rgba(112,183,255,0.08)');
+  ctx.fillStyle = grad;
+  roundRect(36, 36, boardSize - 72, boardSize - 72, 18);
+  ctx.fill();
+}
+
+function drawCells() {
+  const legalSet = new Set(legalMoves.map(move => `${move.r},${move.c}`));
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const { x, y, w, h } = cellRect(r, c);
+      const legal = canInteract() && legalSet.has(`${r},${c}`);
+      ctx.fillStyle = legal ? 'rgba(244,196,106,0.22)' : 'rgba(255,255,255,0.055)';
+      ctx.strokeStyle = legal ? 'rgba(244,196,106,0.72)' : 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = legal ? 2 : 1;
+      roundRect(x, y, w, h, 12);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+}
+
+function drawLastPath() {
+  if (!lastPath.length) return;
+  ctx.save();
+  for (const pos of lastPath) {
+    const { x, y, w, h } = cellRect(pos.r, pos.c);
+    ctx.fillStyle = 'rgba(112,183,255,0.18)';
+    roundRect(x + 6, y + 6, w - 12, h - 12, 10);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawStones() {
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const stone = stoneAt(r, c);
+      if (!stone) continue;
+      const { x, y, w, h } = cellRect(r, c);
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const radius = w * 0.31;
+      const active = effectiveLit(r, c);
+      ctx.save();
+      ctx.globalAlpha = active ? 1 : 0.42;
+      ctx.fillStyle = COLORS[stone.color].stone;
+      ctx.strokeStyle = COLORS[stone.color].rim;
+      ctx.lineWidth = active ? 3 : 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      if (!active) {
+        ctx.globalAlpha = 0.72;
+        ctx.fillStyle = 'rgba(8,10,16,0.54)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+}
+
+function drawMoon() {
+  const { x, y, w, h } = cellRect(moon.r, moon.c);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  ctx.save();
+  ctx.shadowColor = 'rgba(247,223,157,0.8)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#f7df9d';
+  ctx.beginPath();
+  ctx.arc(cx - 5, cy, w * 0.24, Math.PI * 0.18, Math.PI * 1.82);
+  ctx.arc(cx + 8, cy - 2, w * 0.22, Math.PI * 1.75, Math.PI * 0.25, true);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCoordinates() {
+  ctx.fillStyle = 'rgba(238,242,247,0.45)';
+  ctx.font = '14px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let c = 0; c < SIZE; c++) {
+    const rect = cellRect(0, c);
+    ctx.fillText(String.fromCharCode(65 + c), rect.x + rect.w / 2, 35);
+  }
+  ctx.textAlign = 'right';
+  for (let r = 0; r < SIZE; r++) {
+    const rect = cellRect(r, 0);
+    ctx.fillText(String(r + 1), 42, rect.y + rect.h / 2);
+  }
+}
+
+function roundRect(x, y, w, h, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  ctx.lineTo(x + radius, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+function canvasToCell(event) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const cellBox = cellRect(r, c);
+      if (x >= cellBox.x && x <= cellBox.x + cellBox.w && y >= cellBox.y && y <= cellBox.y + cellBox.h) {
+        return { r, c };
+      }
+    }
+  }
+  return null;
+}
+
+canvas.addEventListener('click', event => {
+  if (!canInteract()) return;
+  const pos = canvasToCell(event);
+  if (!pos) return;
+  applyMove(pos.r, pos.c, turn, true);
+});
+
+resetState();
+setNames('黒', '白');
+updateUI();
+drawBoard();
+</script>
+</body>
+</html>
