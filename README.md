@@ -42,7 +42,7 @@
 3. `Settings` > `Pages` を開きます。
 4. `Deploy from a branch` を選びます。
 5. Branchを `main`、Folderを `/root` にして保存します。
-6. `https://<user-name>.github.io/<repository-name>/` を開きます。
+6. `www.tukihami.com` を開きます。
 
 ## 実装メモ
 
